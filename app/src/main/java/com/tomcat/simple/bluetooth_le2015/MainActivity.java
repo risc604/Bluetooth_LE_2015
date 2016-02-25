@@ -23,9 +23,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -36,14 +38,16 @@ public class MainActivity extends AppCompatActivity
     private BluetoothAdapter    mBluetoothAdapter;
     private int                 REQUEST_ENABLE_BT = 1;
     private Handler             mHandler;
-    private static final long   SCAN_PERIOD = 30000;    // 30s
+    private static final long   SCAN_PERIOD = 10000;    // 5s
     private BluetoothLeScanner  mLEScanner;
     private ScanSettings        settings;
     private List<ScanFilter>    filters;
     private BluetoothGatt       mGatt;
 
     private final int           API_LEVEL = 21;
-
+    private TextView            tvDevInfo;
+    private ListView            devListView;
+    private ArrayAdapter<ScanResult>    adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -55,10 +59,15 @@ public class MainActivity extends AppCompatActivity
         userControl();
     }
 
+
+    static int counts = 0;
     @Override
     protected void onResume()
     {
         super.onResume();
+
+        //tvDevInfo.setText(""+ Integer.toString(counts++));
+
         if ((mBluetoothAdapter == null) || (!mBluetoothAdapter.isEnabled()))
         {
             Intent  enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -70,11 +79,14 @@ public class MainActivity extends AppCompatActivity
             {
                 mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
                 settings = new ScanSettings.Builder()
-                        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                        //.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
                         .build();
-                filters = new ArrayList<ScanFilter>();
             }
             scanLeDevice(true);
+
+            tvDevInfo.setText(mBluetoothAdapter.getName().toString() + ": " +
+                                mBluetoothAdapter.getAddress().toString()+ " @ ");
         }
     }
 
@@ -140,7 +152,8 @@ public class MainActivity extends AppCompatActivity
             }
             else
             {
-                mLEScanner.startScan(filters, settings, mScanCallback);
+                mLEScanner.startScan(filters, settings, mScanCallback);     // API >= 21, real to scan BLE.
+                ;
             }
         }
         else
@@ -173,8 +186,15 @@ public class MainActivity extends AppCompatActivity
         {
             Log.i("callbackType", String.valueOf(callbackType));
             Log.i("result", result.toString());
-            BluetoothDevice btDevice = result.getDevice();
-            connectToDevice(btDevice);
+            //BluetoothDevice btDevice = result.getDevice();
+            //connectToDevice(btDevice);
+            connectToDevice(result.getDevice());
+            processResult(result);
+            //if(!bleDevice.listIterator().previous().getName().equals(btDevice.getName()))
+            //    bleDevice.add(btDevice);
+
+
+            tvDevInfo.setText(result.getDevice().getName() + " : " + result.getDevice().getAddress() + " @ " + result.getRssi());
             //super.onScanResult(callbackType, result);
         }
 
@@ -184,6 +204,7 @@ public class MainActivity extends AppCompatActivity
             for (ScanResult sr : results)
             {
                 Log.i("ScanResult - Results", sr.toString());
+                tvDevInfo.setText(sr.getDevice().getName() + " : " + sr.getDevice().getAddress() + " s@ " + sr.getRssi());
             }
             //super.onBatchScanResults(results);
         }
@@ -193,6 +214,15 @@ public class MainActivity extends AppCompatActivity
         {
             Log.e("Scan Fialed", "Error Code" + errorCode);
             //super.onScanFailed(errorCode);
+        }
+
+        private void processResult(ScanResult result)
+        {
+            Log.i("mScanCallback", "New LE Device: " + result.getDevice().getName() + " @ " + result.getRssi());
+            //ArrayList<ScanResult>   resultsList = new ArrayList<>();
+
+            //resultsList.add(result);
+            //mHandler.sendMessage(Message.obtain(null, 0, resultsList));
         }
     };
 
@@ -290,12 +320,14 @@ public class MainActivity extends AppCompatActivity
 
     protected void userInterface()
     {
-
+        tvDevInfo = (TextView)findViewById(R.id.guiDeviceInfo);
+        devListView = (ListView)findViewById(R.id.listView);
     }
 
     protected void userControl()
     {
         mHandler = new Handler();
+
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE))
         {
             Toast.makeText(this, "BLE Not Supported !", Toast.LENGTH_SHORT).show();
@@ -304,5 +336,7 @@ public class MainActivity extends AppCompatActivity
 
         final BluetoothManager  bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
+        //devListView.setAdapter();
+
     }
 }
